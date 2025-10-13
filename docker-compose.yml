@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rl-robotics:latest
+    container_name: rl-training
+    runtime: nvidia  # For GPU support
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./runs:/app/runs
+      - ./configs:/app/configs
+    command: python3 train.py --config configs/training_config.yaml
+    
+  tensorboard:
+    image: tensorflow/tensorflow:latest
+    container_name: rl-tensorboard
+    ports:
+      - "6006:6006"
+    volumes:
+      - ./runs:/logs
+    command: tensorboard --logdir=/logs --host=0.0.0.0

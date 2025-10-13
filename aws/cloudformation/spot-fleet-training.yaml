@@ -1,0 +1,255 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Spot Fleet infrastructure for RL robotics training'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: 'rl-robotics'
+    Description: 'Project name for resource naming'
+  
+  SpotPrice:
+    Type: String
+    Default: '0.526'
+    Description: 'Maximum price per hour for spot instances'
+  
+  InstanceType:
+    Type: String
+    Default: 'g4dn.xlarge'
+    Description: 'EC2 instance type'
+    AllowedValues:
+      - g4dn.xlarge
+      - g4dn.2xlarge
+      - g4dn.4xlarge
+      - p3.2xlarge
+      - p3.8xlarge
+  
+  FleetSize:
+    Type: Number
+    Default: 4
+    Description: 'Number of instances in the fleet'
+    MinValue: 1
+    MaxValue: 20
+  
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: 'EC2 Key Pair for SSH access'
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: 'VPC ID for the fleet'
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: 'Subnet IDs for the fleet'
+
+Resources:
+  # S3 Bucket for model storage
+  ModelsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-models-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  
+  # IAM Role for EC2 instances
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-ec2-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+      Policies:
+        - PolicyName: SpotFleetPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - !GetAtt ModelsBucket.Arn
+                  - !Sub '${ModelsBucket.Arn}/*'
+  
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${ProjectName}-instance-profile'
+      Roles:
+        - !Ref EC2InstanceRole
+  
+  # Security Group
+  TrainingSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${ProjectName}-training-sg'
+      GroupDescription: 'Security group for RL training instances'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: 'SSH access'
+        - IpProtocol: tcp
+          FromPort: 6006
+          ToPort: 6006
+          CidrIp: 0.0.0.0/0
+          Description: 'TensorBoard'
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: 'Allow all outbound traffic'
+  
+  # Launch Template
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub '${ProjectName}-launch-template'
+      LaunchTemplateData:
+        ImageId: !Sub '{{resolve:ssm:/aws/service/ecs/optimized-ami/amazon-linux-2/gpu/recommended/image_id}}'
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !Ref TrainingSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            # Update system
+            yum update -y
+            
+            # Install Docker
+            amazon-linux-extras install docker -y
+            service docker start
+            usermod -a -G docker ec2-user
+            
+            # Install nvidia-docker
+            distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+            curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.repo | \
+              sudo tee /etc/yum.repos.d/nvidia-docker.repo
+            yum install -y nvidia-docker2
+            systemctl restart docker
+            
+            # Install AWS CLI
+            yum install -y aws-cli
+            
+            # Pull Docker image
+            docker pull ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}:latest
+            
+            # Set environment variables
+            export S3_CHECKPOINT_PATH=s3://${ModelsBucket}/checkpoints/
+            export S3_OUTPUT_PATH=s3://${ModelsBucket}/outputs/
+            
+            # Run training container
+            docker run --gpus all \
+              -e S3_CHECKPOINT_PATH=$S3_CHECKPOINT_PATH \
+              -e S3_OUTPUT_PATH=$S3_OUTPUT_PATH \
+              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}:latest
+            
+            # Shutdown instance when done
+            shutdown -h now
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${ProjectName}-training-instance'
+              - Key: Project
+                Value: !Ref ProjectName
+  
+  # Spot Fleet Request
+  SpotFleetRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-spot-fleet-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: spotfleet.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole'
+  
+  SpotFleet:
+    Type: AWS::EC2::SpotFleet
+    Properties:
+      SpotFleetRequestConfigData:
+        IamFleetRole: !GetAtt SpotFleetRole.Arn
+        SpotPrice: !Ref SpotPrice
+        TargetCapacity: !Ref FleetSize
+        AllocationStrategy: lowestPrice
+        InstanceInterruptionBehavior: terminate
+        LaunchTemplateConfigs:
+          - LaunchTemplateSpecification:
+              LaunchTemplateId: !Ref LaunchTemplate
+              Version: !GetAtt LaunchTemplate.LatestVersionNumber
+            Overrides:
+              - SubnetId: !Select [0, !Ref SubnetIds]
+              - SubnetId: !Select [1, !Ref SubnetIds]
+        ReplaceUnhealthyInstances: true
+        TerminateInstancesWithExpiration: true
+  
+  # ECR Repository for Docker images
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ProjectName
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+Outputs:
+  ModelsBucketName:
+    Description: 'S3 bucket name for models'
+    Value: !Ref ModelsBucket
+    Export:
+      Name: !Sub '${ProjectName}-models-bucket'
+  
+  ECRRepositoryUri:
+    Description: 'ECR repository URI'
+    Value: !GetAtt ECRRepository.RepositoryUri
+    Export:
+      Name: !Sub '${ProjectName}-ecr-uri'
+  
+  SpotFleetId:
+    Description: 'Spot Fleet Request ID'
+    Value: !Ref SpotFleet

@@ -1,0 +1,26 @@
+# Deep Learning and RL Frameworks
+torch>=2.0.0
+stable-baselines3>=2.0.0
+sb3-contrib>=2.0.0
+
+# Robotics Simulation
+pybullet>=3.2.5
+gymnasium>=0.29.0
+
+# AWS SDK
+boto3>=1.28.0
+sagemaker>=2.170.0
+
+# Data Processing and Visualization
+numpy>=1.24.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+tensorboard>=2.13.0
+
+# Configuration Management
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Utilities
+tqdm>=4.65.0
+wandb>=0.15.0
