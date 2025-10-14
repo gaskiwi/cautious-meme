@@ -66,6 +66,39 @@ This project provides a complete RL robotics training environment with:
    python evaluate.py models/best_model --episodes 20
    ```
 
+## Training Sessions
+
+This project uses **progressive training sessions** to train increasingly capable agents. Each session focuses on a specific goal and builds upon previous sessions.
+
+### Training Session 1: Height Maximization ✅
+
+**Goal:** Get one of the robots as high (vertically) as possible.
+
+This first session teaches agents to maximize vertical height. The environment supports multiple robots, and the reward is based on the highest robot's position.
+
+**Quick Test:**
+```bash
+python3 examples/test_height_env.py
+```
+
+**Start Training:**
+```bash
+python3 train.py
+```
+
+The default configuration (`configs/training_config.yaml`) is already set up for Training Session 1.
+
+**Key Features:**
+- Multi-robot support (default: 3 robots)
+- 6 DOF control per robot (forces and torques)
+- Reward based on maximum height achieved
+- Progressive learning with height improvement bonuses
+
+For detailed information about all training sessions, see [TRAINING_SESSIONS.md](TRAINING_SESSIONS.md).
+
+### Future Sessions
+Additional training sessions will be defined and implemented in succession, each building on the skills learned in previous sessions.
+
 ### Docker Setup
 
 1. **Build Docker image:**
