@@ -1,0 +1,58 @@
+# Training Configuration for RL Robotics
+
+# Environment settings
+environment:
+  name: "robot_env"
+  render_mode: null  # Set to "human" for visualization
+  max_episode_steps: 1000
+  
+# Agent settings
+agent:
+  algorithm: "PPO"  # Options: PPO, SAC, TD3, A2C
+  policy: "MlpPolicy"  # Multi-layer perceptron policy
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  
+# Network architecture
+network:
+  policy_layers: [256, 256]
+  value_layers: [256, 256]
+  activation: "relu"
+  
+# Training settings
+training:
+  total_timesteps: 1000000
+  eval_freq: 10000
+  eval_episodes: 10
+  save_freq: 50000
+  log_interval: 10
+  
+# Paths
+paths:
+  models: "./models"
+  logs: "./logs"
+  tensorboard: "./runs"
+  
+# AWS settings (for Spot Fleet training)
+aws:
+  region: "us-east-1"
+  instance_type: "g4dn.xlarge"  # GPU instance for faster training
+  spot_price: "0.526"  # Max price per hour
+  ami_id: "ami-xxxxxxxxxx"  # Will be configured with Docker image
+  s3_bucket: "rl-robotics-models"
+  fleet_size: 4
+  
+# Monitoring
+monitoring:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: "rl-robotics"
+  wandb_entity: null
