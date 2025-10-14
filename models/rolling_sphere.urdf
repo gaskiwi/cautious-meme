@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<robot name="rolling_sphere">
+  
+  <!-- Sphere link designed for rolling -->
+  <link name="sphere">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1.0"/>
+      <!-- Inertia of a solid sphere: I = (2/5) * m * r^2 -->
+      <!-- radius = 0.167m, mass = 1.0kg -->
+      <!-- I = 0.4 * 1.0 * 0.167^2 = 0.01115556 -->
+      <inertia ixx="0.01116" ixy="0" ixz="0" 
+               iyy="0.01116" iyz="0" 
+               izz="0.01116"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.167"/>
+      </geometry>
+      <material name="green">
+        <color rgba="0 1 0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.167"/>
+      </geometry>
+    </collision>
+  </link>
+
+</robot>

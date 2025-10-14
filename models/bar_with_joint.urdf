@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<robot name="bar_with_joint">
+  
+  <!-- Base link (fixed point at center) -->
+  <link name="base">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.025"/>
+      </geometry>
+      <material name="red">
+        <color rgba="1 0 0 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.025"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- First bar segment -->
+  <link name="bar_1">
+    <inertial>
+      <origin xyz="0.25 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.001042" ixy="0" ixz="0" iyy="0.001042" iyz="0" izz="0.0000625"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.25 0 0" rpy="0 1.5708 0"/>
+      <geometry>
+        <cylinder radius="0.015" length="0.5"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.25 0 0" rpy="0 1.5708 0"/>
+      <geometry>
+        <cylinder radius="0.015" length="0.5"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Second bar segment -->
+  <link name="bar_2">
+    <inertial>
+      <origin xyz="0.25 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/>
+      <inertia ixx="0.001042" ixy="0" ixz="0" iyy="0.001042" iyz="0" izz="0.0000625"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.25 0 0" rpy="0 1.5708 0"/>
+      <geometry>
+        <cylinder radius="0.015" length="0.5"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.25 0 0" rpy="0 1.5708 0"/>
+      <geometry>
+        <cylinder radius="0.015" length="0.5"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Ball and socket joint connecting first bar to base -->
+  <joint name="ball_joint_1" type="spherical">
+    <parent link="base"/>
+    <child link="bar_1"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <!-- Ball and socket joint connecting second bar to base -->
+  <joint name="ball_joint_2" type="spherical">
+    <parent link="base"/>
+    <child link="bar_2"/>
+    <origin xyz="0 0 0" rpy="0 0 3.14159"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+</robot>
