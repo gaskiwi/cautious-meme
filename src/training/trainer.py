@@ -9,7 +9,7 @@ from src.utils.config_loader import load_config
 from src.utils.logger import setup_logger
 from src.agents.agent_factory import create_agent
 from src.agents.callbacks import ProgressCallback, SaveBestModelCallback
-from src.environments import SimpleRobotEnv
+from src.environments import SimpleRobotEnv, HeightMaximizeEnv
 
 
 def train_agent(
@@ -42,16 +42,32 @@ def train_agent(
     
     # Create environment
     logger.info("Creating environment...")
-    env = SimpleRobotEnv(
-        render_mode=config['environment']['render_mode'],
-        max_episode_steps=config['environment']['max_episode_steps']
-    )
+    env_name = config['environment'].get('name', 'simple_robot_env')
     
-    # Create evaluation environment
-    eval_env = SimpleRobotEnv(
-        render_mode=None,
-        max_episode_steps=config['environment']['max_episode_steps']
-    )
+    # Map environment names to classes
+    env_classes = {
+        'simple_robot_env': SimpleRobotEnv,
+        'height_maximize_env': HeightMaximizeEnv,
+    }
+    
+    EnvClass = env_classes.get(env_name, SimpleRobotEnv)
+    
+    # Get environment-specific parameters
+    env_kwargs = {
+        'render_mode': config['environment']['render_mode'],
+        'max_episode_steps': config['environment']['max_episode_steps']
+    }
+    
+    # Add num_robots parameter for HeightMaximizeEnv
+    if env_name == 'height_maximize_env' and 'num_robots' in config['environment']:
+        env_kwargs['num_robots'] = config['environment']['num_robots']
+    
+    env = EnvClass(**env_kwargs)
+    
+    # Create evaluation environment (without rendering)
+    eval_kwargs = env_kwargs.copy()
+    eval_kwargs['render_mode'] = None
+    eval_env = EnvClass(**eval_kwargs)
     
     # Create or load agent
     if checkpoint_path and Path(checkpoint_path).exists():
