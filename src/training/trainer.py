@@ -58,9 +58,12 @@ def train_agent(
         'max_episode_steps': config['environment']['max_episode_steps']
     }
     
-    # Add num_robots parameter for HeightMaximizeEnv
-    if env_name == 'height_maximize_env' and 'num_robots' in config['environment']:
-        env_kwargs['num_robots'] = config['environment']['num_robots']
+    # Add environment-specific parameters for HeightMaximizeEnv
+    if env_name == 'height_maximize_env':
+        if 'num_type_b_robots' in config['environment']:
+            env_kwargs['num_type_b_robots'] = config['environment']['num_type_b_robots']
+        if 'spawn_radius' in config['environment']:
+            env_kwargs['spawn_radius'] = config['environment']['spawn_radius']
     
     env = EnvClass(**env_kwargs)
     

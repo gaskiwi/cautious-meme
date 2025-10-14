@@ -2,13 +2,25 @@
 # TRAINING SESSION 1: Height Maximization
 # Goal: Get one of the robots as high (vertically) as possible
 # Note: This is the first of multiple training sessions that will be run in succession
+#
+# Robot Types:
+#   - Type A: Bar robots with joints (bar_with_joint.urdf) - 2N robots
+#   - Type B: Sphere robots (rolling_sphere.urdf) - N robots
+#   - Total: 3N robots per episode
+#
+# Features:
+#   - Random deployment on plane each episode
+#   - Type A endpoints can connect to Type B spheres
+#   - Joint motors configured to lift 2x body weight
+#   - Reward based on highest z-level at episode end
 
 # Environment settings
 environment:
   name: "height_maximize_env"  # Training Session 1 environment
   render_mode: null  # Set to "human" for visualization
   max_episode_steps: 1000
-  num_robots: 3  # Number of robots in the environment
+  num_type_b_robots: 2  # N (Type A will be 2N, total 3N robots)
+  spawn_radius: 3.0  # Radius for random robot deployment
   
 # Agent settings
 agent:
