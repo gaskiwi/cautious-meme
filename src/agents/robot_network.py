@@ -30,8 +30,8 @@ class RobotEncoder(nn.Module):
         - Base sphere: position (3), orientation (4), velocity (3), angular_vel (3) = 13
         - Bar 1: position (3), orientation (4), velocity (3), angular_vel (3) = 13
         - Bar 2: position (3), orientation (4), velocity (3), angular_vel (3) = 13
-        - Ball_joint_1: joint angles (3), joint velocities (3) = 6
-        - Ball_joint_2: joint angles (3), joint velocities (3) = 6
+        - Ball joint: joint angles (3), joint velocities (3) = 6
+        - Joint connection info: 6
         Total: 13 + 13 + 13 + 6 + 6 = 51 dimensions
     
     For Type B (Sphere Robot):
@@ -154,8 +154,8 @@ class RobotAwareNetwork(nn.Module):
         self,
         type_a_state_dim: int = 51,  # Bar robot state dimension
         type_b_state_dim: int = 13,  # Sphere robot state dimension
-        type_a_action_dim: int = 6,  # 2 spherical joints × 3 DOF each
-        type_b_action_dim: int = 3,  # Torques for rolling (3 DOF)
+        type_a_action_dim: int = 3,  # 1 spherical joint × 3 DOF
+        type_b_action_dim: int = 2,  # Torques for rolling (2 DOF)
         max_robots: int = 10,
         embedding_dim: int = 128,
         num_attention_heads: int = 4,
@@ -167,8 +167,8 @@ class RobotAwareNetwork(nn.Module):
         Args:
             type_a_state_dim: State dimension for Type A (Bar) robots
             type_b_state_dim: State dimension for Type B (Sphere) robots
-            type_a_action_dim: Action dimension for Type A robots
-            type_b_action_dim: Action dimension for Type B robots
+            type_a_action_dim: Action dimension for Type A robots (3 DOF - 1 spherical joint)
+            type_b_action_dim: Action dimension for Type B robots (2 DOF - rolling control)
             max_robots: Maximum number of robots in the environment
             embedding_dim: Dimension of robot embeddings
             num_attention_heads: Number of attention heads

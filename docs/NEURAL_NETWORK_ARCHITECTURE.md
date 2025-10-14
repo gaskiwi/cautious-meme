@@ -20,8 +20,8 @@ Separate encoder networks for each robot type to process their unique state repr
   - Base sphere: position (3) + orientation (4) + velocity (3) + angular velocity (3) = 13
   - Bar 1: position (3) + orientation (4) + velocity (3) + angular velocity (3) = 13
   - Bar 2: position (3) + orientation (4) + velocity (3) + angular velocity (3) = 13
-  - Ball joint 1: joint angles (3) + joint velocities (3) = 6
-  - Ball joint 2: joint angles (3) + joint velocities (3) = 6
+  - Ball joint: joint angles (3) + joint velocities (3) = 6
+  - Joint connection info: 6
   
 - **Architecture**:
   ```
@@ -82,8 +82,8 @@ Features = Linear(256) → ReLU → Linear(256) → ReLU
 ```
 
 **Type-Specific Action Heads**:
-- Type A head: `Linear(256) → 6` (2 spherical joints × 3 DOF each)
-- Type B head: `Linear(256) → 3` (3 DOF torques for rolling)
+- Type A head: `Linear(256) → 3` (1 spherical joint × 3 DOF)
+- Type B head: `Linear(256) → 2` (2 DOF torques for rolling)
 
 ### 6. Critic Network (Value Function)
 
@@ -132,8 +132,8 @@ Observations are structured as:
 Actions are output per robot:
 ```python
 [
-  robot1_actions (6 or 3, depending on type),
-  robot2_actions (6 or 3, depending on type),
+  robot1_actions (3 or 2, depending on type),
+  robot2_actions (3 or 2, depending on type),
   ...
 ]
 ```
@@ -162,7 +162,7 @@ Actions are output per robot:
 
 ### 6. Type-Specific Action Heads
 
-**Rationale**: Type A robots have 6 controllable DOF while Type B robots have 3. Separate heads ensure each robot type gets appropriate action dimensions.
+**Rationale**: Type A robots have 3 controllable DOF (one spherical joint) while Type B robots have 2 DOF (rolling control). Separate heads ensure each robot type gets appropriate action dimensions.
 
 ## Network Parameters
 

@@ -150,8 +150,8 @@ class RobotActorCriticPolicy(ActorCriticPolicy):
         max_robots: int = 10,
         type_a_state_dim: int = 51,
         type_b_state_dim: int = 13,
-        type_a_action_dim: int = 6,
-        type_b_action_dim: int = 3,
+        type_a_action_dim: int = 3,
+        type_b_action_dim: int = 2,
         embedding_dim: int = 128,
         num_attention_heads: int = 4,
         net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
@@ -169,8 +169,8 @@ class RobotActorCriticPolicy(ActorCriticPolicy):
             max_robots: Maximum number of robots
             type_a_state_dim: State dimension for Type A robots
             type_b_state_dim: State dimension for Type B robots
-            type_a_action_dim: Action dimension for Type A robots
-            type_b_action_dim: Action dimension for Type B robots
+            type_a_action_dim: Action dimension for Type A robots (3 DOF)
+            type_b_action_dim: Action dimension for Type B robots (2 DOF)
             embedding_dim: Dimension of robot embeddings
             num_attention_heads: Number of attention heads
             net_arch: Network architecture specification
@@ -278,8 +278,8 @@ class MultiRobotEnvironmentWrapper:
     def parse_action(
         action: np.ndarray,
         robot_types: List[int],
-        type_a_action_dim: int = 6,
-        type_b_action_dim: int = 3
+        type_a_action_dim: int = 3,
+        type_b_action_dim: int = 2
     ) -> List[np.ndarray]:
         """
         Parse the network output into per-robot actions.
@@ -335,8 +335,8 @@ def get_robot_policy_kwargs(
         'max_robots': max_robots,
         'type_a_state_dim': kwargs.get('type_a_state_dim', 51),
         'type_b_state_dim': kwargs.get('type_b_state_dim', 13),
-        'type_a_action_dim': kwargs.get('type_a_action_dim', 6),
-        'type_b_action_dim': kwargs.get('type_b_action_dim', 3),
+        'type_a_action_dim': kwargs.get('type_a_action_dim', 3),
+        'type_b_action_dim': kwargs.get('type_b_action_dim', 2),
         'embedding_dim': kwargs.get('embedding_dim', 128),
         'num_attention_heads': kwargs.get('num_attention_heads', 4),
         'net_arch': kwargs.get('net_arch', dict(pi=[256, 256], vf=[256, 256])),

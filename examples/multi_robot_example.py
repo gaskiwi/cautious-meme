@@ -57,8 +57,8 @@ def create_multi_robot_config(num_type_a: int = 2, num_type_b: int = 2) -> Dict[
             'max_robots': max_robots,
             'type_a_state_dim': 51,  # Bar robot state dimension
             'type_b_state_dim': 13,  # Sphere robot state dimension
-            'type_a_action_dim': 6,  # 2 spherical joints × 3 DOF
-            'type_b_action_dim': 3,  # 3 DOF for rolling
+            'type_a_action_dim': 3,  # 1 spherical joint × 3 DOF
+            'type_b_action_dim': 2,  # 2 DOF for rolling
         },
         'network': {
             'embedding_dim': 128,
@@ -124,6 +124,8 @@ def example_basic_usage():
     print(f"  - Type B Encoder: {network.type_b_state_dim} → 128")
     print(f"  - Attention: {network.embedding_dim}-dim, {network.attention.num_heads} heads")
     print(f"  - Actor: Outputs {network.type_a_action_dim}-dim (Type A) or {network.type_b_action_dim}-dim (Type B)")
+    print(f"    - Type A: 3 DOF (1 spherical joint)")
+    print(f"    - Type B: 2 DOF (rolling control)")
     print(f"  - Critic: Outputs 1-dim value")
     
     print("\n✓ Basic network creation successful!")

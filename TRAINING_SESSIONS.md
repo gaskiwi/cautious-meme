@@ -19,6 +19,7 @@ This is the first training session in a series of progressive training sessions.
 - **Multi-Robot:** Supports multiple robots (default: 3)
 - **Scoring:** The highest robot's height determines the reward for the entire team
 - **Robot Type:** Simple box robots with 6 DOF control (forces and torques in 3D)
+  - Note: When using the custom multi-robot network, Type A (Bar) robots have 3 DOF (1 spherical joint) and Type B (Sphere) robots have 2 DOF (rolling control)
 
 ### Reward Structure
 The reward function for Training Session 1 consists of:

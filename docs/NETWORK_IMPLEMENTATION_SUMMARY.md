@@ -71,19 +71,19 @@ Practical examples showing:
 - Base sphere state: 13 (pos, orn, vel, ang_vel)
 - Bar 1 state: 13
 - Bar 2 state: 13  
-- Ball joint 1: 6 (angles, velocities)
-- Ball joint 2: 6 (angles, velocities)
+- Ball joint: 6 (angles, velocities)
+- Joint connection info: 6
 
 **Type B (Sphere Robot)**: 13 dimensions
 - Sphere state: 13 (pos, orn, vel, ang_vel)
 
 ### Output Format
 
-**Type A Actions**: 6 dimensions
-- 2 spherical joints × 3 DOF each
+**Type A Actions**: 3 dimensions
+- 1 spherical joint × 3 DOF
 
-**Type B Actions**: 3 dimensions
-- 3 DOF torques for rolling
+**Type B Actions**: 2 dimensions
+- 2 DOF torques for rolling
 
 ### Network Parameters
 

@@ -55,10 +55,12 @@ class HeightMaximizeEnv(BaseRobotEnv):
         # Each robot has 6 actuators (forces/torques in 3D space)
         # Action space: continuous control for all robots
         # [robot1_fx, robot1_fy, robot1_fz, robot1_tx, robot1_ty, robot1_tz, robot2_fx, ...]
+        # Note: This is for simple box robots. For the custom multi-robot network with
+        # Type A (Bar) and Type B (Sphere) robots, use 3 DOF and 2 DOF respectively.
         self.action_space = gym.spaces.Box(
             low=-1.0,
             high=1.0,
-            shape=(num_robots * 6,),  # 6 DOF per robot
+            shape=(num_robots * 6,),  # 6 DOF per robot (for simple box robots)
             dtype=np.float32
         )
         

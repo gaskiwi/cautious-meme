@@ -82,16 +82,16 @@ Create a Neural Network that:
 - Base sphere: position (3) + orientation (4) + velocity (3) + angular velocity (3) = 13
 - Bar 1: position (3) + orientation (4) + velocity (3) + angular velocity (3) = 13
 - Bar 2: position (3) + orientation (4) + velocity (3) + angular velocity (3) = 13
-- Ball joint 1: angles (3) + velocities (3) = 6
-- Ball joint 2: angles (3) + velocities (3) = 6
+- Ball joint: angles (3) + velocities (3) = 6
+- Joint connection info: 6
 
 **Type B (Sphere Robot)**: 13 dimensions
 - Sphere: position (3) + orientation (4) + velocity (3) + angular velocity (3) = 13
 
 ### Output Format
 
-**Type A Actions**: 6 dimensions (2 spherical joints × 3 DOF each)
-**Type B Actions**: 3 dimensions (3 DOF torques for rolling)
+**Type A Actions**: 3 dimensions (1 spherical joint × 3 DOF)
+**Type B Actions**: 2 dimensions (2 DOF torques for rolling)
 
 ### Network Components
 

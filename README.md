@@ -100,7 +100,7 @@ The default configuration (`configs/training_config.yaml`) is already set up for
 
 **Key Features:**
 - Multi-robot support (default: 3 robots)
-- 6 DOF control per robot (forces and torques)
+- Type-specific control (3 DOF for Type A, 2 DOF for Type B when using custom network)
 - Reward based on maximum height achieved
 - Progressive learning with height improvement bonuses
 
@@ -118,7 +118,7 @@ The project includes a **custom multi-robot neural network** specifically design
 - **Type-Aware Processing**: Separate encoders for Type A (Bar Robot) and Type B (Sphere Robot)
 - **Variable Robot Count**: Handles 1 to N robots dynamically using padding and masking
 - **Multi-Head Attention**: Models robot-to-robot interactions and coordination
-- **Flexible Action Outputs**: Type-specific action heads (6-DOF for Type A, 3-DOF for Type B)
+- **Flexible Action Outputs**: Type-specific action heads (3-DOF for Type A, 2-DOF for Type B)
 
 ### Architecture Overview
 
