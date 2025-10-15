@@ -1,0 +1,94 @@
+# Training Configuration for RL Robotics
+# TRAINING SESSION 2: Crush Resistance
+# Goal: Resist a descending hydraulic press for as long as possible
+# Note: This is the second of multiple training sessions that will be run in succession
+#
+# Robot Types (Same as Session 1):
+#   - Type A: Bar robots with joints (bar_with_joint.urdf) - 2N robots
+#   - Type B: Sphere robots (rolling_sphere.urdf) - N robots
+#   - Total: 3N robots per episode
+#
+# Features:
+#   - Phase 1 (30s): Positioning phase - robots can arrange themselves
+#   - Phase 2: Hydraulic press descends from above like a hydraulic press
+#   - Press applies increasing force when encountering resistance
+#   - Reward based on survival time after press activation
+
+# Environment settings
+environment:
+  name: "crush_resistance_env"  # Training Session 2 environment
+  render_mode: null  # Set to "human" for visualization
+  max_episode_steps: 3000  # ~50 seconds (30s positioning + 20s crushing)
+  num_type_b_robots: 2  # N (Type A will be 2N, total 3N robots)
+  spawn_radius: 3.0  # Radius for random robot deployment
+  
+  # Session 2 specific parameters
+  reference_height: 5.0  # Starting height of hydraulic press (meters)
+  press_descent_speed: 0.05  # Speed of press descent (m/s)
+  press_force_increment: 50.0  # Force increment when pressing (Newtons per step)
+  
+# Agent settings
+agent:
+  algorithm: "PPO"  # Options: PPO, SAC, TD3, A2C
+  policy: "MlpPolicy"  # Multi-layer perceptron policy
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  
+# Network architecture
+network:
+  policy_layers: [256, 256]
+  value_layers: [256, 256]
+  activation: "relu"
+  
+# Training settings
+training:
+  total_timesteps: 2000000  # More timesteps for harder task
+  eval_freq: 10000
+  eval_episodes: 10
+  save_freq: 50000
+  log_interval: 10
+  
+# Paths
+paths:
+  models: "./models/session2"
+  logs: "./logs/session2"
+  tensorboard: "./runs/session2"
+  
+# Transfer learning (optional)
+# Uncomment to fine-tune from Session 1 model
+# transfer_learning:
+#   enabled: true
+#   source_model: "./models/session1_best_model.zip"
+#   freeze_layers: []  # List of layer indices to freeze (empty = fine-tune all)
+  
+# AWS settings (for Spot Fleet training)
+aws:
+  region: "us-east-1"
+  instance_type: "g4dn.xlarge"  # GPU instance for faster training
+  spot_price: "0.526"  # Max price per hour
+  ami_id: "ami-xxxxxxxxxx"  # Will be configured with Docker image
+  s3_bucket: "rl-robotics-models"
+  fleet_size: 4
+  
+# Monitoring
+monitoring:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: "rl-robotics-session2"
+  wandb_entity: null
+  
+# Session 2 specific monitoring
+session2_metrics:
+  track_survival_time: true  # Track time survived after press activation
+  track_press_force: true  # Track force applied by press
+  track_robot_heights: true  # Track robot heights during crushing
+  track_connections: true  # Track robot-robot connections
+  save_collapse_videos: false  # Save videos of structural collapse (requires render)

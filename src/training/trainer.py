@@ -9,7 +9,7 @@ from src.utils.config_loader import load_config
 from src.utils.logger import setup_logger
 from src.agents.agent_factory import create_agent
 from src.agents.callbacks import ProgressCallback, SaveBestModelCallback
-from src.environments import SimpleRobotEnv, HeightMaximizeEnv
+from src.environments import SimpleRobotEnv, HeightMaximizeEnv, CrushResistanceEnv
 
 
 def train_agent(
@@ -48,6 +48,7 @@ def train_agent(
     env_classes = {
         'simple_robot_env': SimpleRobotEnv,
         'height_maximize_env': HeightMaximizeEnv,
+        'crush_resistance_env': CrushResistanceEnv,
     }
     
     EnvClass = env_classes.get(env_name, SimpleRobotEnv)
@@ -58,9 +59,25 @@ def train_agent(
         'max_episode_steps': config['environment']['max_episode_steps']
     }
     
-    # Add num_robots parameter for HeightMaximizeEnv
-    if env_name == 'height_maximize_env' and 'num_robots' in config['environment']:
-        env_kwargs['num_robots'] = config['environment']['num_robots']
+    # Add environment-specific parameters for HeightMaximizeEnv
+    if env_name == 'height_maximize_env':
+        if 'num_type_b_robots' in config['environment']:
+            env_kwargs['num_type_b_robots'] = config['environment']['num_type_b_robots']
+        if 'spawn_radius' in config['environment']:
+            env_kwargs['spawn_radius'] = config['environment']['spawn_radius']
+    
+    # Add environment-specific parameters for CrushResistanceEnv
+    if env_name == 'crush_resistance_env':
+        if 'num_type_b_robots' in config['environment']:
+            env_kwargs['num_type_b_robots'] = config['environment']['num_type_b_robots']
+        if 'spawn_radius' in config['environment']:
+            env_kwargs['spawn_radius'] = config['environment']['spawn_radius']
+        if 'reference_height' in config['environment']:
+            env_kwargs['reference_height'] = config['environment']['reference_height']
+        if 'press_descent_speed' in config['environment']:
+            env_kwargs['press_descent_speed'] = config['environment']['press_descent_speed']
+        if 'press_force_increment' in config['environment']:
+            env_kwargs['press_force_increment'] = config['environment']['press_force_increment']
     
     env = EnvClass(**env_kwargs)
     
