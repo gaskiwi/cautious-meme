@@ -113,13 +113,180 @@ Training Session 1 establishes the foundation for:
 
 ---
 
-## Training Session 2: [To Be Defined]
+## Training Session 2: Crush Resistance
 
-**Status:** ⏳ Pending
+**Status:** ✅ Implemented
 
-**Goal:** TBD
+**Goal:** Resist a descending hydraulic press for as long as possible.
 
-*This session will be defined based on project requirements and the success of Session 1.*
+### Overview
+This is the second training session in the series. The primary objective is to teach agents to build stable structures that can resist crushing forces from above. The session features a two-phase episode: first a positioning phase (30 seconds) where robots can arrange themselves, then a crushing phase where a hydraulic press descends from above.
+
+### Key Details
+- **Environment:** `CrushResistanceEnv` (`src/environments/crush_resistance_env.py`)
+- **Objective:** Survive as long as possible after the hydraulic press activates
+- **Multi-Robot:** Same robot configuration as Session 1 (Type A bars + Type B spheres)
+- **Physics:** Identical physics to HeightMaximizeEnv for consistency
+- **Scoring:** Based on survival time after press activation (time until all robots touch ground)
+- **Robot Types:**
+  - Type A: Bar robots with joints (bar_with_joint.urdf) - 2N robots
+  - Type B: Sphere robots (rolling_sphere.urdf) - N robots
+
+### Episode Structure
+
+#### Phase 1: Positioning (First 30 seconds / 1800 steps)
+- Robots can move and position themselves freely
+- Same physics and controls as Session 1
+- Robots can form connections and structures
+- Small reward for building height (encourages preparation)
+
+#### Phase 2: Crushing (After 30 seconds)
+- Hydraulic press activates at configurable height (default: 5m)
+- Press descends at constant speed (default: 0.05 m/s)
+- When encountering resistance, press applies increasing force
+- Force increments until obstacles are crushed
+- Episode ends when all robots touch the ground plane
+
+### Reward Structure
+The reward function for Training Session 2 consists of:
+
+1. **Positioning Reward (Pre-Press):** Small reward during first 30 seconds
+   - Formula: `max_height × 0.01`
+   - Encourages robots to build structures in preparation
+
+2. **Survival Reward (Post-Press):** Primary reward after press activation
+   - Formula: `1.0` per step survived
+   - Each step survived is valuable
+
+3. **Height Bonus (Post-Press):** Bonus for resisting crushing
+   - Formula: `avg_height × 0.5`
+   - Rewards maintaining elevation under pressure
+
+4. **Final Survival Bonus:** Large bonus at episode end
+   - Formula: `survival_time × 10.0`
+   - Rewards total time survived after press activation
+
+### Action Space
+Same as HeightMaximizeEnv:
+- Type A robots: 6 values per robot (2 spherical joints × 3 DOF)
+- Type B robots: 3 values per robot (force x, y, z)
+
+Total action space dimension: `(num_type_a × 6) + (num_type_b × 3)`
+
+With default N=2: `(4 × 6) + (2 × 3) = 30` continuous values ∈ [-1, 1]
+
+### Observation Space
+Same as HeightMaximizeEnv:
+- Type A robots: 19 values per robot (pos, orn, vel, ang_vel, joint_states)
+- Type B robots: 13 values per robot (pos, orn, vel, ang_vel)
+
+Total observation space dimension: `(num_type_a × 19) + (num_type_b × 13)`
+
+With default N=2: `(4 × 19) + (2 × 13) = 102` continuous values
+
+### Hydraulic Press Mechanism
+
+#### Press Specifications
+- **Size:** 10m × 10m horizontal plane, 0.1m thick
+- **Mass:** 100 kg (heavy enough to crush robots)
+- **Visual:** Semi-transparent red color
+- **Starting Height:** Configurable (default: 5m, should be above Session 1 max height)
+
+#### Press Behavior
+1. **Descent:** Constant velocity downward (default: 0.05 m/s)
+2. **Contact Detection:** Detects collisions with robots
+3. **Force Application:** When in contact, applies increasing downward force
+4. **Force Increment:** Adds configurable force per step (default: 50 N)
+5. **Crushing:** Continues until all robots are pressed to ground
+
+### Termination Conditions
+An episode terminates if:
+- All robots touch the ground plane (z < 0.3m) - **Primary condition**
+- Any robot falls through ground (z < -1.0m) - **Safety check**
+- Any robot moves too far horizontally (distance > 20.0 units) - **Safety check**
+- Maximum episode steps reached (default: 3000 for ~50 seconds)
+
+### Configuration Parameters
+
+Key configurable parameters in environment initialization:
+```python
+CrushResistanceEnv(
+    num_type_b_robots=2,           # N (Type A will be 2N)
+    spawn_radius=3.0,              # Random spawn area radius
+    reference_height=5.0,          # Press starting height
+    press_descent_speed=0.05,      # m/s
+    press_force_increment=50.0,    # N per step
+    max_episode_steps=3000         # ~50 seconds
+)
+```
+
+### Usage
+
+#### Testing the Environment
+```bash
+python3 examples/test_crush_env.py
+```
+
+This runs three tests:
+1. Basic environment functionality test
+2. Hydraulic press mechanism test
+3. Reward system test
+
+#### Training
+```bash
+# Create custom config for Session 2
+python3 train.py --config configs/session2_config.yaml
+```
+
+#### Evaluation
+```bash
+python3 evaluate.py models/session2_best_model --render
+```
+
+### Expected Learning Outcomes
+By the end of Training Session 2, the agent should learn to:
+- Build stable structures that resist vertical crushing forces
+- Position robots strategically before press activation
+- Form strong connections between robots
+- Distribute forces effectively across the structure
+- Balance stability with height (taller = more survival space)
+- Discover bracing, buttressing, and support strategies
+
+### Metrics to Track
+- Survival time after press activation (primary metric)
+- Average robot height during crushing phase
+- Number of robot-robot connections maintained
+- Press force applied over time
+- Robot positions when press activates
+- Structural collapse patterns
+
+### Relationship to Session 1
+This session builds on Session 1 by:
+- Using identical physics and robot types
+- Requiring height-building skills from Session 1
+- Adding pressure resistance as a new challenge
+- Using Session 1's max height as reference for press starting height
+- Encouraging structural stability over pure height maximization
+
+Models trained in Session 1 can be fine-tuned for Session 2, as the skills overlap significantly.
+
+### Technical Implementation Notes
+
+#### Connection System
+- Same as Session 1: Type A bar endpoints can connect to Type B spheres
+- Connections maintained during crushing (unless broken by excessive force)
+- Connection distance: 0.2m proximity threshold
+
+#### Physics Consistency
+- Same gravity, masses, and forces as Session 1
+- Joint motors: 2× body weight lifting capacity
+- Type A mass: 1.1 kg, Type B mass: 1.0 kg
+
+#### Press Implementation
+- Created as multi-body with collision and visual shape
+- Uses velocity control for smooth descent
+- Applies external forces when in contact
+- Force accumulates until obstacles yield
 
 ---
 
