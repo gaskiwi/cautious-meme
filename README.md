@@ -17,10 +17,20 @@ This project provides a complete RL robotics training environment with:
 .
 ├── src/
 │   ├── agents/          # RL agent implementations
+│   │   ├── robot_network.py      # Custom multi-robot neural network
+│   │   ├── robot_policy.py       # SB3-compatible policy wrapper
+│   │   └── agent_factory.py      # Agent creation with custom policies
 │   ├── environments/    # PyBullet environment wrappers
 │   ├── training/        # Training and evaluation scripts
 │   └── utils/           # Configuration and logging utilities
 ├── configs/             # Training configuration files
+├── docs/                # Documentation
+│   ├── NEURAL_NETWORK_ARCHITECTURE.md  # Multi-robot NN details
+│   └── NETWORK_IMPLEMENTATION_SUMMARY.md  # Implementation guide
+├── tests/               # Test suite
+│   └── test_robot_network.py    # Network architecture tests
+├── examples/            # Usage examples
+│   └── multi_robot_example.py   # Multi-robot training examples
 ├── aws/                 # AWS infrastructure code
 │   ├── cloudformation/  # CloudFormation templates
 │   ├── deploy.sh        # Deployment script
@@ -90,7 +100,7 @@ The default configuration (`configs/training_config.yaml`) is already set up for
 
 **Key Features:**
 - Multi-robot support (default: 3 robots)
-- 6 DOF control per robot (forces and torques)
+- Type-specific control (3 DOF for Type A, 2 DOF for Type B when using custom network)
 - Reward based on maximum height achieved
 - Progressive learning with height improvement bonuses
 
@@ -98,6 +108,63 @@ For detailed information about all training sessions, see [TRAINING_SESSIONS.md]
 
 ### Future Sessions
 Additional training sessions will be defined and implemented in succession, each building on the skills learned in previous sessions.
+
+## Custom Neural Network Architecture
+
+The project includes a **custom multi-robot neural network** specifically designed for controlling multiple robots simultaneously:
+
+### Key Features
+
+- **Type-Aware Processing**: Separate encoders for Type A (Bar Robot) and Type B (Sphere Robot)
+- **Variable Robot Count**: Handles 1 to N robots dynamically using padding and masking
+- **Multi-Head Attention**: Models robot-to-robot interactions and coordination
+- **Flexible Action Outputs**: Type-specific action heads (3-DOF for Type A, 2-DOF for Type B)
+
+### Architecture Overview
+
+```
+Robot Observations → Type-Specific Encoders → Type Embeddings
+                                              ↓
+                                    Multi-Head Attention
+                                              ↓
+                                    Global Context Aggregation
+                            ↙                                   ↘
+                    Actor Network                        Critic Network
+                (per-robot actions)                    (global value estimate)
+```
+
+### Usage Example
+
+```python
+from src.agents import RobotActorCriticPolicy, get_robot_policy_kwargs
+from stable_baselines3 import PPO
+
+# Configure for 2 Type A and 3 Type B robots
+policy_kwargs = get_robot_policy_kwargs(
+    max_robots=10,
+    num_type_a=2,
+    num_type_b=3
+)
+
+# Create agent with custom policy
+agent = PPO(
+    policy=RobotActorCriticPolicy,
+    env=env,
+    policy_kwargs=policy_kwargs,
+    learning_rate=3e-4,
+    verbose=1
+)
+
+# Train
+agent.learn(total_timesteps=1_000_000)
+```
+
+### Documentation
+
+- **[Neural Network Architecture](docs/NEURAL_NETWORK_ARCHITECTURE.md)**: Detailed technical documentation
+- **[Implementation Summary](docs/NETWORK_IMPLEMENTATION_SUMMARY.md)**: Integration guide and examples
+- **[Test Suite](tests/test_robot_network.py)**: Comprehensive tests
+- **[Examples](examples/multi_robot_example.py)**: Practical usage examples
 
 ### Docker Setup
 

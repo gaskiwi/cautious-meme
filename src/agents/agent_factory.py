@@ -2,43 +2,68 @@
 
 from stable_baselines3 import PPO, SAC, TD3, A2C
 from stable_baselines3.common.policies import ActorCriticPolicy
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import torch.nn as nn
 
+from .robot_policy import RobotActorCriticPolicy, get_robot_policy_kwargs
 
-def create_agent(env, config: Dict[str, Any]):
+
+def create_agent(env, config: Dict[str, Any], use_custom_policy: bool = False):
     """
     Create an RL agent based on configuration.
     
     Args:
         env: Gymnasium environment
         config: Configuration dictionary
+        use_custom_policy: Whether to use the custom RobotActorCriticPolicy
         
     Returns:
         Trained agent instance
     """
     algorithm = config['agent']['algorithm']
     
+    # Determine policy class
+    if use_custom_policy:
+        policy = RobotActorCriticPolicy
+        # Get robot-specific configuration
+        robot_config = config.get('robot', {})
+        policy_kwargs = get_robot_policy_kwargs(
+            max_robots=robot_config.get('max_robots', 10),
+            num_type_a=robot_config.get('num_type_a', 0),
+            num_type_b=robot_config.get('num_type_b', 0),
+            type_a_state_dim=robot_config.get('type_a_state_dim', 51),
+            type_b_state_dim=robot_config.get('type_b_state_dim', 13),
+            type_a_action_dim=robot_config.get('type_a_action_dim', 3),
+            type_b_action_dim=robot_config.get('type_b_action_dim', 2),
+            embedding_dim=config['network'].get('embedding_dim', 128),
+            num_attention_heads=config['network'].get('num_attention_heads', 4),
+            net_arch={
+                'pi': config['network']['policy_layers'],
+                'vf': config['network']['value_layers']
+            },
+            activation_fn=get_activation_function(config['network']['activation'])
+        )
+    else:
+        policy = config['agent']['policy']
+        # Policy kwargs for standard network architecture
+        policy_kwargs = {
+            'net_arch': {
+                'pi': config['network']['policy_layers'],
+                'vf': config['network']['value_layers']
+            },
+            'activation_fn': get_activation_function(config['network']['activation'])
+        }
+    
     # Common parameters
     common_params = {
-        'policy': config['agent']['policy'],
+        'policy': policy,
         'env': env,
         'learning_rate': config['agent']['learning_rate'],
         'gamma': config['agent']['gamma'],
         'verbose': 1,
-        'tensorboard_log': config['paths']['tensorboard']
+        'tensorboard_log': config['paths']['tensorboard'],
+        'policy_kwargs': policy_kwargs
     }
-    
-    # Policy kwargs for network architecture
-    policy_kwargs = {
-        'net_arch': {
-            'pi': config['network']['policy_layers'],
-            'vf': config['network']['value_layers']
-        },
-        'activation_fn': get_activation_function(config['network']['activation'])
-    }
-    common_params['policy_kwargs'] = policy_kwargs
-    
     # Algorithm-specific parameters
     if algorithm == 'PPO':
         agent = PPO(
