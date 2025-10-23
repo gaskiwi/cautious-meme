@@ -1,0 +1,377 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS SageMaker infrastructure for RL robotics training with warm pools'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: 'rl-robotics'
+    Description: 'Project name for resource naming'
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: 'VPC ID for SageMaker training jobs'
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: 'Subnet IDs for SageMaker training jobs'
+  
+  AllowedCIDR:
+    Type: String
+    Default: '0.0.0.0/0'
+    Description: 'CIDR block allowed to access resources'
+
+Resources:
+  # S3 Bucket for models, checkpoints, and data
+  SageMakerBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-sagemaker-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldCheckpoints
+            Status: Enabled
+            Prefix: checkpoints/
+            NoncurrentVersionExpirationInDays: 30
+          - Id: ArchiveOldOutputs
+            Status: Enabled
+            Prefix: output/
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: INTELLIGENT_TIERING
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+  
+  # IAM Role for SageMaker Execution
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-sagemaker-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSageMakerFullAccess'
+        - 'arn:aws:iam::aws:policy/CloudWatchLogsFullAccess'
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - !GetAtt SageMakerBucket.Arn
+                  - !Sub '${SageMakerBucket.Arn}/*'
+        - PolicyName: ECRAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ecr:GetAuthorizationToken'
+                  - 'ecr:BatchCheckLayerAvailability'
+                  - 'ecr:GetDownloadUrlForLayer'
+                  - 'ecr:BatchGetImage'
+                Resource: '*'
+        - PolicyName: CloudWatchMetrics
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cloudwatch:PutMetricData'
+                  - 'cloudwatch:GetMetricData'
+                  - 'cloudwatch:ListMetrics'
+                Resource: '*'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+  
+  # Security Group for SageMaker Training Jobs
+  SageMakerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${ProjectName}-sagemaker-sg'
+      GroupDescription: 'Security group for SageMaker training jobs'
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: 'Allow all outbound traffic'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+  
+  # Self-referencing rule for SageMaker distributed training
+  SageMakerSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref SageMakerSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref SageMakerSecurityGroup
+      Description: 'Allow traffic between SageMaker training instances'
+  
+  # ECR Repository for Training Container
+  TrainingRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectName}-training'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+  
+  # CloudWatch Log Group for Training Jobs
+  TrainingLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/sagemaker/TrainingJobs/${ProjectName}'
+      RetentionInDays: 30
+  
+  # SNS Topic for Training Notifications
+  TrainingNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ProjectName}-training-notifications'
+      DisplayName: 'RL Robotics Training Notifications'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+  
+  # EventBridge Rule for Training Job State Changes
+  TrainingJobStateChangeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ProjectName}-training-state-change'
+      Description: 'Trigger notifications on training job state changes'
+      EventPattern:
+        source:
+          - aws.sagemaker
+        detail-type:
+          - SageMaker Training Job State Change
+        detail:
+          TrainingJobName:
+            - prefix: !Sub 'rl-robotics-'
+          TrainingJobStatus:
+            - Completed
+            - Failed
+            - Stopped
+      State: ENABLED
+      Targets:
+        - Arn: !Ref TrainingNotificationTopic
+          Id: SNSTarget
+  
+  # SNS Topic Policy for EventBridge
+  TrainingNotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref TrainingNotificationTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sns:Publish'
+            Resource: !Ref TrainingNotificationTopic
+  
+  # Lambda Function for Pipeline Orchestration (Optional)
+  PipelineOrchestratorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-pipeline-orchestrator'
+      Description: 'Orchestrates sequential training sessions'
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt PipelineOrchestratorRole.Arn
+      Timeout: 900
+      MemorySize: 512
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref SageMakerBucket
+          SAGEMAKER_ROLE_ARN: !GetAtt SageMakerExecutionRole.Arn
+          SECURITY_GROUP_ID: !Ref SageMakerSecurityGroup
+          SUBNET_IDS: !Join [',', !Ref SubnetIds]
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          
+          sagemaker = boto3.client('sagemaker')
+          
+          def lambda_handler(event, context):
+              """
+              Lambda function to orchestrate training pipeline.
+              Triggered by previous training job completion.
+              """
+              print(f"Event: {json.dumps(event)}")
+              
+              # Get training job details from event
+              detail = event.get('detail', {})
+              job_name = detail.get('TrainingJobName')
+              status = detail.get('TrainingJobStatus')
+              
+              print(f"Training job {job_name} finished with status: {status}")
+              
+              if status == 'Completed':
+                  # Logic to start next session in pipeline
+                  # This is a placeholder - implement based on your pipeline config
+                  print("Training completed successfully")
+                  # Could start next training job here
+              else:
+                  print(f"Training failed or stopped: {detail.get('FailureReason', 'Unknown')}")
+              
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps(f'Processed training job: {job_name}')
+              }
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+  
+  # IAM Role for Lambda Orchestrator
+  PipelineOrchestratorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-orchestrator-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: SageMakerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sagemaker:CreateTrainingJob'
+                  - 'sagemaker:DescribeTrainingJob'
+                  - 'sagemaker:StopTrainingJob'
+                  - 'sagemaker:ListTrainingJobs'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'iam:PassRole'
+                Resource: !GetAtt SageMakerExecutionRole.Arn
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - !GetAtt SageMakerBucket.Arn
+                  - !Sub '${SageMakerBucket.Arn}/*'
+  
+  # EventBridge Rule to Trigger Orchestrator Lambda
+  TrainingCompletionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ProjectName}-training-completion'
+      Description: 'Trigger orchestrator on training completion'
+      EventPattern:
+        source:
+          - aws.sagemaker
+        detail-type:
+          - SageMaker Training Job State Change
+        detail:
+          TrainingJobName:
+            - prefix: !Sub 'rl-robotics-'
+          TrainingJobStatus:
+            - Completed
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt PipelineOrchestratorFunction.Arn
+          Id: LambdaTarget
+  
+  # Permission for EventBridge to Invoke Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PipelineOrchestratorFunction
+      Action: 'lambda:InvokeFunction'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt TrainingCompletionRule.Arn
+
+Outputs:
+  SageMakerBucketName:
+    Description: 'S3 bucket name for SageMaker training'
+    Value: !Ref SageMakerBucket
+    Export:
+      Name: !Sub '${ProjectName}-sagemaker-bucket'
+  
+  SageMakerExecutionRoleArn:
+    Description: 'IAM role ARN for SageMaker execution'
+    Value: !GetAtt SageMakerExecutionRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-sagemaker-role'
+  
+  SageMakerSecurityGroupId:
+    Description: 'Security group ID for SageMaker training jobs'
+    Value: !Ref SageMakerSecurityGroup
+    Export:
+      Name: !Sub '${ProjectName}-sagemaker-sg'
+  
+  TrainingRepositoryUri:
+    Description: 'ECR repository URI for training container'
+    Value: !GetAtt TrainingRepository.RepositoryUri
+    Export:
+      Name: !Sub '${ProjectName}-training-ecr'
+  
+  TrainingNotificationTopicArn:
+    Description: 'SNS topic ARN for training notifications'
+    Value: !Ref TrainingNotificationTopic
+    Export:
+      Name: !Sub '${ProjectName}-notification-topic'
+  
+  PipelineOrchestratorFunctionArn:
+    Description: 'Lambda function ARN for pipeline orchestration'
+    Value: !GetAtt PipelineOrchestratorFunction.Arn
+    Export:
+      Name: !Sub '${ProjectName}-orchestrator-function'

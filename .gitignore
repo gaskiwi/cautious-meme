@@ -19,8 +19,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Virtual environments
+# Virtual Environment
 venv/
 ENV/
 env/
@@ -32,30 +33,41 @@ env/
 *.swp
 *.swo
 *~
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Environment variables
-.env
-.env.local
+.DS_Store
 
 # Training outputs
 logs/
-checkpoints/
 models/
 runs/
-wandb/
+checkpoints/
+pipeline_output/
+sagemaker_output/
+pipeline_archives/
+
+# Pipeline state
+pipeline_state.json
+sagemaker_outputs.sh
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
 
 # AWS
-.aws/
 *.pem
+aws/sagemaker_outputs.sh
 
-# OS
-.DS_Store
-Thumbs.db
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation builds
+docs/_build/
+docs/_static/
+docs/_templates/
 
 # Temporary files
 *.log
-tmp/
-temp/
+*.tmp
+.cache/
