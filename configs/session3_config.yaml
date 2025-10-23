@@ -1,0 +1,98 @@
+# Training Configuration for RL Robotics
+# TRAINING SESSION 3: Object Displacement
+# Goal: Displace a randomly shaped object as far as possible in a random cardinal direction
+# Note: This is the third training session in the series
+#
+# Robot Types:
+#   - Type A: Bar robots with joints (bar_with_joint.urdf) - 2N robots
+#   - Type B: Sphere robots (rolling_sphere.urdf) - N robots
+#   - Total: 3N robots per episode
+#
+# Features:
+#   - Random object shape each episode (sphere, cube, cylinder, coffee mug, torus, etc.)
+#   - Random object placement on the plane
+#   - Random robot placement near the object
+#   - Random cardinal direction (North, East, South, West) chosen each episode
+#   - Type A endpoints can connect to Type B spheres for collaborative pushing
+#   - Joint motors configured to lift 2x body weight
+#   - Reward based on object displacement in chosen direction
+
+# Environment settings
+environment:
+  name: "displacement_env"  # Training Session 3 environment
+  render_mode: null  # Set to "human" for visualization
+  max_episode_steps: 1000
+  num_type_b_robots: 2  # N (Type A will be 2N, total 3N robots)
+  spawn_radius: 3.0  # Radius for random robot deployment around object
+  max_object_distance: 15.0  # Maximum distance from origin for object placement
+  
+# Agent settings
+agent:
+  algorithm: "PPO"  # Options: PPO, SAC, TD3, A2C
+  policy: "MlpPolicy"  # Multi-layer perceptron policy
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01  # Slightly higher entropy for exploration
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  
+# Network architecture
+network:
+  policy_layers: [256, 256]
+  value_layers: [256, 256]
+  activation: "relu"
+  
+# Training settings
+training:
+  total_timesteps: 2000000  # More timesteps due to task complexity
+  eval_freq: 10000
+  eval_episodes: 10
+  save_freq: 50000
+  log_interval: 10
+  
+# Paths
+paths:
+  models: "./models/session3"
+  logs: "./logs/session3"
+  tensorboard: "./runs/session3"
+  
+# AWS settings (for Spot Fleet training)
+aws:
+  region: "us-east-1"
+  instance_type: "g4dn.xlarge"  # GPU instance for faster training
+  spot_price: "0.526"  # Max price per hour
+  ami_id: "ami-xxxxxxxxxx"  # Will be configured with Docker image
+  s3_bucket: "rl-robotics-models"
+  fleet_size: 4
+  
+# Monitoring
+monitoring:
+  use_tensorboard: true
+  use_wandb: false
+  wandb_project: "rl-robotics-session3"
+  wandb_entity: null
+  
+# Session-specific settings
+session:
+  id: 3
+  name: "object_displacement"
+  description: "Train agents to displace randomly shaped objects in random directions"
+  available_shapes:
+    - sphere
+    - cube
+    - cylinder
+    - capsule
+    - coffee_mug
+    - torus
+    - rectangular_prism
+    - tall_cylinder
+  directions:
+    - north
+    - south
+    - east
+    - west

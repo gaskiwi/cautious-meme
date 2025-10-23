@@ -291,6 +291,224 @@ Models trained in Session 1 can be fine-tuned for Session 2, as the skills overl
 
 ---
 
+## Training Session 3: Object Displacement
+
+**Status:** ✅ Implemented
+
+**Goal:** Displace a randomly shaped object as far as possible in a random cardinal direction.
+
+### Overview
+This is the third training session in the series. The primary objective is to teach agents to push/move objects of varying shapes in specific directions. Each episode presents a unique challenge with randomized object shapes, randomized placement of both objects and robots, and a randomly chosen target direction (North, East, South, or West).
+
+### Key Details
+- **Environment:** `DisplacementEnv` (`src/environments/displacement_env.py`)
+- **Objective:** Maximize displacement of an object in a randomly chosen cardinal direction
+- **Multi-Robot:** Same robot configuration as previous sessions (Type A bars + Type B spheres)
+- **Physics:** Consistent physics with Session 1 & 2 for transfer learning
+- **Scoring:** Based on object displacement in target direction
+- **Robot Types:**
+  - Type A: Bar robots with joints (bar_with_joint.urdf) - 2N robots
+  - Type B: Sphere robots (rolling_sphere.urdf) - N robots
+
+### Randomization Features
+
+#### Object Shapes (8 varieties)
+The environment randomly selects from diverse object shapes each episode:
+1. **Sphere** - Simple rolling object (2.0 kg, radius 0.3m)
+2. **Cube** - Standard box (2.5 kg, 0.5m sides)
+3. **Cylinder** - Tall cylinder (2.2 kg, 0.2m radius, 0.6m height)
+4. **Capsule** - Pill-shaped object (1.8 kg, 0.15m radius, 0.5m height)
+5. **Coffee Mug** - Complex shape with handle (1.5 kg, approx 0.4m tall)
+6. **Torus** - Ring/donut shape (2.0 kg, 0.3m major radius)
+7. **Rectangular Prism** - Elongated box (2.3 kg, varying dimensions)
+8. **Tall Cylinder** - Unstable tall object (2.0 kg, 0.15m radius, 0.8m height)
+
+Each shape has unique:
+- Mass distribution
+- Friction coefficients
+- Center of mass
+- Stability characteristics
+- Push resistance
+
+#### Cardinal Directions (4 options)
+One direction is randomly chosen per episode:
+- **North:** +Y axis (vector: [0, 1])
+- **South:** -Y axis (vector: [0, -1])
+- **East:** +X axis (vector: [1, 0])
+- **West:** -X axis (vector: [-1, 0])
+
+#### Placement Randomization
+- **Object:** Spawns 2-15 meters from origin at random angle
+- **Robots:** Spawn in circle around object (1-3m radius from object)
+- **Orientation:** Random rotation for all entities
+- **Minimum Separation:** 0.4m between robots, 0.8m from object
+
+### Reward Structure
+The reward function for Training Session 3 consists of:
+
+1. **Displacement Reward:** Primary reward based on current displacement
+   - Formula: `displacement_in_target_direction × 1.0`
+   - Can be positive (moving forward) or negative (moving backward)
+
+2. **Velocity Bonus:** Encourages maintaining momentum
+   - Formula: `object_velocity_in_target_direction × 0.1`
+   - Rewards objects moving with speed in target direction
+
+3. **Final Displacement Bonus:** Large bonus at episode end
+   - Formula: `max_displacement_achieved × 10.0`
+   - Rewards total distance achieved in target direction
+
+### Action Space
+Same as previous sessions:
+- Type A robots: 6 values per robot (2 spherical joints × 3 DOF)
+- Type B robots: 3 values per robot (force x, y, z)
+
+Total action space dimension: `(num_type_a × 6) + (num_type_b × 3)`
+
+With default N=2: `(4 × 6) + (2 × 3) = 30` continuous values ∈ [-1, 1]
+
+### Observation Space
+Enhanced from previous sessions to include object and direction info:
+- Type A robots: 19 values per robot (pos, orn, vel, ang_vel, joint_states)
+- Type B robots: 13 values per robot (pos, orn, vel, ang_vel)
+- **Object state:** 13 values (pos, orn, vel, ang_vel)
+- **Target direction:** 2 values (unit vector in XY plane)
+
+Total observation space dimension: `(num_type_a × 19) + (num_type_b × 13) + 13 + 2`
+
+With default N=2: `(4 × 19) + (2 × 13) + 13 + 2 = 117` continuous values
+
+### Displacement Calculation
+The displacement is calculated as:
+1. Get object's current position: `(x, y, z)`
+2. Get object's initial position: `(x₀, y₀, z₀)`
+3. Calculate displacement vector: `Δ = (x - x₀, y - y₀)`
+4. Project onto target direction: `displacement = Δ · direction_unit_vector`
+
+This allows:
+- Positive displacement when moving in target direction
+- Negative displacement when moving opposite to target
+- Zero displacement when moving perpendicular
+
+### Termination Conditions
+An episode terminates if:
+- Object falls below ground (z < -0.5m)
+- Object moves beyond boundary (distance > 50m from origin)
+- Any robot falls below ground (z < -1.0m)
+- Any robot moves beyond boundary (distance > 50m from origin)
+- Maximum episode steps reached (default: 1000)
+
+### Configuration Parameters
+
+Key configurable parameters in environment initialization:
+```python
+DisplacementEnv(
+    num_type_b_robots=2,           # N (Type A will be 2N)
+    spawn_radius=3.0,              # Robot spawn radius around object
+    max_object_distance=15.0,      # Max distance from origin for object
+    max_episode_steps=1000         # Episode length
+)
+```
+
+Configuration file: `configs/session3_config.yaml`
+
+### Usage
+
+#### Testing the Environment
+```bash
+# Simple test without GUI (quick verification)
+python3 examples/test_displacement_simple.py
+
+# Full test with visualization (if GUI available)
+python3 examples/test_displacement_env.py
+```
+
+The simple test runs 5 automated tests:
+1. Basic environment functionality
+2. All object shapes
+3. All cardinal directions
+4. Displacement calculation accuracy
+5. Randomized placement verification
+
+#### Training
+```bash
+# Train with Session 3 configuration
+python3 train.py --config configs/session3_config.yaml
+```
+
+#### Evaluation
+```bash
+python3 evaluate.py models/session3_best_model --render
+```
+
+### Expected Learning Outcomes
+By the end of Training Session 3, the agent should learn to:
+- **Perception:** Recognize different object shapes and their properties
+- **Strategy:** Adapt pushing strategy based on object shape
+  - Roll spheres vs. push cubes
+  - Handle unstable vs. stable objects
+  - Adjust force based on object mass
+- **Direction Following:** Push objects in specified cardinal direction
+- **Collaboration:** Coordinate multiple robots to push larger/heavier objects
+- **Force Application:** Apply appropriate force magnitude and direction
+- **Positioning:** Position robots optimally relative to object and target direction
+- **Persistence:** Continue pushing over long distances
+
+### Metrics to Track
+- Maximum displacement achieved (primary metric)
+- Final object position
+- Displacement per object shape (shape-specific performance)
+- Displacement per direction (directional bias detection)
+- Average velocity in target direction
+- Number of robot-robot connections used
+- Episode efficiency (displacement per step)
+- Object stability (did it tip over or stay upright)
+
+### Relationship to Previous Sessions
+This session builds on previous sessions by:
+- Using identical physics and robot types (transfer learning ready)
+- Requiring force application skills (from both sessions)
+- Adding object interaction as new challenge
+- Testing adaptability to randomization
+- Requiring strategic positioning (from Session 2)
+- Using collaborative pushing (connection system from Sessions 1 & 2)
+
+Models trained in Sessions 1 & 2 can be fine-tuned for Session 3, as skills like:
+- Force application (Session 1)
+- Strategic positioning (Session 2)
+- Robot-robot collaboration (Sessions 1 & 2)
+
+are all relevant to object displacement.
+
+### Technical Implementation Notes
+
+#### Object Creation
+- Objects created using PyBullet geometric primitives
+- Custom compound shapes for complex objects (coffee mug, torus)
+- Realistic friction properties for natural interaction
+- Visual colors distinguish different shapes
+
+#### Physics Properties
+- Lateral friction: 0.8 (realistic sliding)
+- Spinning friction: 0.1
+- Rolling friction: 0.05
+- Object masses: 1.5-2.5 kg (pushable but challenging)
+
+#### Randomization Implementation
+- Numpy random seed support for reproducibility
+- Shape selection: uniform random from 8 shapes
+- Direction selection: uniform random from 4 directions
+- Position generation: polar coordinates with collision checking
+- Minimum separation enforced to prevent spawn overlaps
+
+#### Connection System
+- Same as Sessions 1 & 2: Type A bar endpoints can connect to Type B spheres
+- Enables collaborative pushing of heavier objects
+- Connection distance: 0.2m proximity threshold
+- Dynamic connection/disconnection during episode
+
+---
+
 ## How to Add New Training Sessions
 
 When adding a new training session:
@@ -336,6 +554,6 @@ The training sessions are designed to be run in succession, meaning:
 
 ---
 
-**Last Updated:** 2025-10-14
+**Last Updated:** 2025-10-23
 **Project:** RL Robotics Testing
 **Repository:** https://github.com/gaskiwi/cautious-meme.git

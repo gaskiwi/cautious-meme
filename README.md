@@ -104,10 +104,46 @@ The default configuration (`configs/training_config.yaml`) is already set up for
 - Reward based on maximum height achieved
 - Progressive learning with height improvement bonuses
 
-For detailed information about all training sessions, see [TRAINING_SESSIONS.md](TRAINING_SESSIONS.md).
+### Training Session 2: Crush Resistance ✅
 
-### Future Sessions
-Additional training sessions will be defined and implemented in succession, each building on the skills learned in previous sessions.
+**Goal:** Resist a descending hydraulic press for as long as possible.
+
+This session teaches agents to build stable structures that can resist crushing forces. Features a two-phase episode: positioning (30s) followed by a descending hydraulic press.
+
+**Quick Test:**
+```bash
+python3 examples/test_crush_env.py
+```
+
+**Start Training:**
+```bash
+python3 train.py --config configs/session2_config.yaml
+```
+
+### Training Session 3: Object Displacement ✅
+
+**Goal:** Displace a randomly shaped object as far as possible in a random cardinal direction.
+
+This session teaches agents to interact with and push objects of varying shapes (sphere, cube, cylinder, coffee mug, torus, etc.) in specific directions (North, East, South, West). All aspects are randomized each episode.
+
+**Quick Test:**
+```bash
+python3 examples/test_displacement_simple.py
+```
+
+**Start Training:**
+```bash
+python3 train.py --config configs/session3_config.yaml
+```
+
+**Key Features:**
+- 8 different object shapes including unusual ones (coffee mug, torus)
+- Random object and robot placement each episode
+- 4 cardinal directions (N, E, S, W) randomly chosen
+- Reward based on displacement in target direction
+- Collaborative pushing with robot connections
+
+For detailed information about all training sessions, see [TRAINING_SESSIONS.md](TRAINING_SESSIONS.md).
 
 ## Custom Neural Network Architecture
 
