@@ -1,14 +1,17 @@
 # RL Robotics Training
 
-A scalable reinforcement learning framework for robot training using PyBullet simulation and AWS Spot Fleet infrastructure.
+A scalable reinforcement learning framework for robot training using PyBullet simulation with organized training pipelines and AWS SageMaker integration.
 
 ## Overview
 
 This project provides a complete RL robotics training environment with:
+- **Organized Training Pipelines** - Sequential execution of multiple training environments
 - **PyBullet-based robot simulation** - Flexible environment framework
 - **Stable Baselines3 integration** - State-of-the-art RL algorithms (PPO, SAC, TD3, A2C)
-- **AWS Spot Fleet training** - Cost-effective distributed training on GPU instances
+- **AWS SageMaker with Warm Pools** - Fast session transitions and cost-effective training
+- **AWS Spot Fleet support** - 70% cost savings on compute
 - **Docker containerization** - Consistent environments across local and cloud
+- **Transfer Learning** - Use checkpoints from previous sessions
 - **Modular architecture** - Easy to customize for your specific robot and tasks
 
 ## Project Structure
@@ -21,22 +24,32 @@ This project provides a complete RL robotics training environment with:
 │   │   ├── robot_policy.py       # SB3-compatible policy wrapper
 │   │   └── agent_factory.py      # Agent creation with custom policies
 │   ├── environments/    # PyBullet environment wrappers
+│   │   ├── height_maximize_env.py      # Session 1: Height maximization
+│   │   └── crush_resistance_env.py     # Session 2: Crush resistance
 │   ├── training/        # Training and evaluation scripts
+│   │   ├── trainer.py            # Single session training
+│   │   ├── pipeline.py           # Sequential pipeline orchestrator
+│   │   └── sagemaker_runner.py   # AWS SageMaker integration
 │   └── utils/           # Configuration and logging utilities
 ├── configs/             # Training configuration files
+│   ├── pipeline_config.yaml      # Local pipeline configuration
+│   ├── pipeline_config_aws.yaml  # AWS SageMaker pipeline config
+│   ├── training_config.yaml      # Session 1 config
+│   └── session2_config.yaml      # Session 2 config
 ├── docs/                # Documentation
+│   ├── TRAINING_PIPELINE.md      # Complete pipeline guide
+│   ├── PIPELINE_QUICKSTART.md    # Quick start guide
 │   ├── NEURAL_NETWORK_ARCHITECTURE.md  # Multi-robot NN details
 │   └── NETWORK_IMPLEMENTATION_SUMMARY.md  # Implementation guide
-├── tests/               # Test suite
-│   └── test_robot_network.py    # Network architecture tests
-├── examples/            # Usage examples
-│   └── multi_robot_example.py   # Multi-robot training examples
 ├── aws/                 # AWS infrastructure code
-│   ├── cloudformation/  # CloudFormation templates
-│   ├── deploy.sh        # Deployment script
-│   └── push-image.sh    # Docker image deployment
-├── docker/              # Docker configurations
-├── train.py             # Main training entry point
+│   ├── cloudformation/
+│   │   ├── spot-fleet-training.yaml    # EC2 Spot Fleet template
+│   │   └── sagemaker-pipeline.yaml     # SageMaker with warm pools
+│   ├── deploy.sh                       # EC2 deployment
+│   ├── deploy_sagemaker.sh             # SageMaker deployment
+│   └── push-image.sh                   # Docker image deployment
+├── run_pipeline.py      # Unified pipeline entry point
+├── train.py             # Single session training entry point
 ├── evaluate.py          # Model evaluation script
 └── requirements.txt     # Python dependencies
 ```

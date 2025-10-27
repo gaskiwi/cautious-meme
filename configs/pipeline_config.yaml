@@ -1,0 +1,122 @@
+# Training Pipeline Configuration
+# Defines sequential execution of multiple training sessions
+#
+# This configuration orchestrates the complete training pipeline,
+# running multiple environments in succession with checkpoint management
+# and transfer learning between sessions.
+
+name: "Multi-Environment RL Robotics Pipeline"
+description: "Sequential training pipeline for progressive robot learning"
+
+# Pipeline-level settings
+continue_on_error: false  # Stop pipeline if any session fails
+enable_transfer_learning: true  # Use checkpoints from previous sessions
+save_all_checkpoints: true  # Save checkpoints from each session
+
+# AWS settings (optional, for cloud execution)
+aws:
+  use_s3: false  # Set to true when running on AWS
+  s3_bucket: "rl-robotics-models"  # S3 bucket for checkpoints
+  region: "us-east-1"
+  
+# Training sessions to run in sequence
+# Each session trains on a different environment with specific objectives
+sessions:
+  # Session 1: Height Maximization
+  - name: "session1_height_maximize"
+    description: "Teach robots to maximize vertical height"
+    config: "configs/training_config.yaml"
+    timesteps: null  # Use value from config file
+    use_previous_checkpoint: false  # First session, no previous checkpoint
+    checkpoint: null  # No initial checkpoint
+    
+    # Optional overrides for session-specific settings
+    overrides:
+      environment:
+        name: "height_maximize_env"
+        num_type_b_robots: 2
+        spawn_radius: 3.0
+      training:
+        total_timesteps: 1000000
+        eval_freq: 10000
+      monitoring:
+        use_tensorboard: true
+    
+    # Success criteria (optional, for future automation)
+    success_criteria:
+      min_reward: 5.0  # Minimum average reward to consider successful
+      min_episodes: 1000  # Minimum episodes to train
+  
+  # Session 2: Crush Resistance
+  - name: "session2_crush_resistance"
+    description: "Teach robots to resist crushing forces from above"
+    config: "configs/session2_config.yaml"
+    timesteps: null  # Use value from config file
+    use_previous_checkpoint: true  # Transfer learning from Session 1
+    checkpoint: null  # Will use previous session's best model
+    
+    overrides:
+      environment:
+        name: "crush_resistance_env"
+        num_type_b_robots: 2
+        spawn_radius: 3.0
+        reference_height: 5.0
+        press_descent_speed: 0.05
+        press_force_increment: 50.0
+      training:
+        total_timesteps: 2000000  # More timesteps for harder task
+        eval_freq: 10000
+      monitoring:
+        use_tensorboard: true
+    
+    success_criteria:
+      min_reward: 100.0  # Survival time reward
+      min_episodes: 2000
+
+  # Session 3: Future Environment (Template)
+  # Uncomment and configure for additional training sessions
+  # - name: "session3_your_environment"
+  #   description: "Description of your training objective"
+  #   config: "configs/session3_config.yaml"
+  #   timesteps: null
+  #   use_previous_checkpoint: true
+  #   checkpoint: null
+  #   
+  #   overrides:
+  #     environment:
+  #       name: "your_env_name"
+  #     training:
+  #       total_timesteps: 1000000
+  #   
+  #   success_criteria:
+  #     min_reward: 10.0
+  #     min_episodes: 1000
+
+# Monitoring and reporting
+monitoring:
+  # Track metrics across all sessions
+  track_metrics:
+    - episode_reward_mean
+    - episode_length_mean
+    - approx_kl
+    - explained_variance
+  
+  # Generate comparison plots across sessions
+  generate_plots: true
+  
+  # Save summary report
+  save_report: true
+  report_format: "json"  # json, html, or both
+
+# Post-pipeline actions
+post_pipeline:
+  # Compare performance across sessions
+  compare_sessions: true
+  
+  # Generate final evaluation report
+  evaluate_final_models: true
+  eval_episodes: 50
+  
+  # Archive results
+  archive_results: true
+  archive_location: "./pipeline_archives"

@@ -175,6 +175,63 @@ Config → Environment → Agent → Training Loop → Checkpoints/Logs
 - S3 lifecycle policies
 - Right-sizing instances
 
+## Training Pipeline Architecture
+
+### Sequential Environment Execution
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              Pipeline Orchestrator                       │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌────────────┐      ┌────────────┐      ┌──────────┐ │
+│  │ Session 1  │─────▶│ Session 2  │─────▶│ Session N││
+│  │  Height    │      │   Crush    │      │  Future  ││
+│  │ Maximize   │      │ Resistance │      │          ││
+│  └─────┬──────┘      └─────┬──────┘      └────┬─────┘ │
+│        │                   │                   │       │
+│        ▼                   ▼                   ▼       │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │         Checkpoint Management System              │ │
+│  │  - Transfer Learning Support                      │ │
+│  │  - State Persistence                              │ │
+│  │  - Local or S3 Storage                            │ │
+│  └──────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Pipeline Components
+
+**TrainingPipeline** (`src/training/pipeline.py`):
+- Orchestrates sequential execution
+- Manages checkpoints and state
+- Supports resume from interruption
+- S3 integration for distributed training
+
+**SageMakerTrainingRunner** (`src/training/sagemaker_runner.py`):
+- AWS SageMaker integration
+- Managed warm pools for fast transitions
+- Spot instance support
+- CloudWatch metrics
+
+### Warm Pool Strategy
+
+SageMaker warm pools reduce session transition time from minutes to seconds:
+
+```
+Traditional Approach:
+Session 1 → Terminate → Session 2 Setup (5 min) → Session 2 Train
+   ↓
+ 60 min                    5 min                    90 min
+                         
+With Warm Pools:
+Session 1 → Keep Alive → Session 2 Train
+   ↓
+ 60 min     (10 sec)     90 min
+
+Savings: ~5 minutes and $0.06 per transition
+```
+
 ## Future Enhancements
 
 1. **Multi-Agent Training**: Support for multi-agent environments
@@ -184,3 +241,5 @@ Config → Environment → Agent → Training Loop → Checkpoints/Logs
 5. **Model Serving**: Inference endpoints for deployed models
 6. **Unity Integration**: Support for Unity ML-Agents
 7. **Real Robot Interface**: Bridge to physical robots
+8. **Auto-scaling Pipelines**: Dynamic resource allocation
+9. **Curriculum Learning**: Automated difficulty progression
