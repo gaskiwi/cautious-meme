@@ -1,0 +1,139 @@
+# AWS Training Pipeline Configuration
+# Optimized for AWS SageMaker with Warm Pools and Spot Instances
+#
+# This configuration is designed for cost-effective distributed training
+# on AWS using SageMaker Managed Warm Pools for fast session transitions
+
+name: "AWS Multi-Environment RL Robotics Pipeline"
+description: "Sequential training pipeline optimized for AWS SageMaker"
+
+# Pipeline-level settings
+continue_on_error: false
+enable_transfer_learning: true
+save_all_checkpoints: true
+
+# AWS-specific settings
+aws:
+  use_s3: true
+  s3_bucket: "rl-robotics-models"  # Update with your bucket name
+  region: "us-east-1"
+  
+  # SageMaker settings
+  sagemaker:
+    enabled: true
+    instance_type: "ml.g4dn.xlarge"  # GPU instance for training
+    instance_count: 1  # Number of instances per session
+    max_run_seconds: 86400  # 24 hours max per session
+    
+    # Warm Pools configuration for fast session transitions
+    warm_pool:
+      enabled: true
+      max_instances: 1
+      # Keep instance alive for up to 1 hour between sessions
+      retention_period_seconds: 3600
+      
+    # Spot instance configuration for cost savings
+    use_spot_instances: true
+    max_wait_seconds: 3600  # Wait up to 1 hour for spot capacity
+    
+    # Container configuration
+    container_image_uri: null  # Will use ECR image from deployment
+    
+    # Networking
+    vpc_config:
+      security_group_ids: []  # Update with your security groups
+      subnets: []  # Update with your subnet IDs
+    
+    # IAM role for SageMaker execution
+    role_arn: null  # Update with your SageMaker execution role ARN
+
+# Training sessions (same as base config but optimized for AWS)
+sessions:
+  - name: "session1_height_maximize"
+    description: "Height maximization on AWS SageMaker"
+    config: "configs/training_config.yaml"
+    timesteps: 1000000
+    use_previous_checkpoint: false
+    
+    aws_overrides:
+      # Session-specific AWS settings
+      sagemaker:
+        instance_type: "ml.g4dn.xlarge"
+        max_run_seconds: 10800  # 3 hours for Session 1
+    
+    overrides:
+      environment:
+        name: "height_maximize_env"
+        render_mode: null  # No rendering on cloud
+      training:
+        total_timesteps: 1000000
+        
+  - name: "session2_crush_resistance"
+    description: "Crush resistance training on AWS SageMaker"
+    config: "configs/session2_config.yaml"
+    timesteps: 2000000
+    use_previous_checkpoint: true
+    
+    aws_overrides:
+      # More compute for harder task
+      sagemaker:
+        instance_type: "ml.g4dn.2xlarge"  # Larger instance
+        max_run_seconds: 21600  # 6 hours for Session 2
+    
+    overrides:
+      environment:
+        name: "crush_resistance_env"
+        render_mode: null
+      training:
+        total_timesteps: 2000000
+
+# Monitoring optimized for AWS
+monitoring:
+  use_cloudwatch: true  # Enable CloudWatch metrics
+  cloudwatch_namespace: "RLRobotics/Training"
+  
+  track_metrics:
+    - episode_reward_mean
+    - episode_length_mean
+    - gpu_utilization
+    - cpu_utilization
+    - memory_usage
+  
+  # SageMaker-specific monitoring
+  sagemaker_metrics:
+    - name: "episode_reward"
+      regex: "episode_reward_mean: ([0-9\\.]+)"
+    - name: "episode_length"
+      regex: "episode_length_mean: ([0-9\\.]+)"
+  
+  generate_plots: true
+  save_report: true
+
+# Cost optimization settings
+cost_optimization:
+  # Automatically stop if training is not improving
+  early_stopping:
+    enabled: true
+    patience_episodes: 100
+    min_improvement: 0.01
+  
+  # Use managed warm pools to reduce startup time between sessions
+  warm_pool_strategy: "keep_alive"  # Keep instance alive between sessions
+  
+  # Checkpoint frequency to enable resume
+  checkpoint_frequency_steps: 50000
+
+# Post-pipeline actions
+post_pipeline:
+  compare_sessions: true
+  evaluate_final_models: true
+  eval_episodes: 50
+  
+  # Upload final results to S3
+  upload_to_s3: true
+  s3_results_prefix: "pipeline_results"
+  
+  # Clean up resources
+  cleanup:
+    terminate_warm_pools: true
+    archive_logs: true
